@@ -1,0 +1,11 @@
+Project 1 Checkpoint:
+
+Datasets: I am using a Huggingface Dataset. The link to the dataset is here:https://huggingface.co/datasets/wikipedia#20200501de. 
+It consists of many cleaned wikipedia articles of various languages. The data set is extensive consisting of 34.87735 GB of data, 
+which should be more than enough to effectively train our model.
+
+Method: For the first checkpoint we are randomly selecting words to be outputted by our language model. 
+We plan using an RNN to implement our language model initially. If the performance is not optimal we may
+switch to a transformer based model later on. We will split the dataset into a train and validation set(as the test set
+is given by the class).We plan on implementing and training the model in python using tools such as keras and tensorflow. We plan on 
+generating graphs to visualize our data collection using a framework such as matplotlib.
