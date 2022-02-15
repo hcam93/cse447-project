@@ -3,18 +3,27 @@ import os
 import string
 import random
 from argparse import ArgumentParser, ArgumentDefaultsHelpFormatter
+from numpy import array
+from torchtext.datasets import WikiText2
+import nltk
+from nltk import ngrams
+import numpy as np
+import csv
+from collections import Counter
 
+def char_tokenizer(text):
+  return [c for c in text]
 
 class MyModel:
     """
     This is a starter model to get you started. Feel free to modify this file.
     """
+    trigram_freq_dist = nltk.FreqDist()
+    bigram_freq_dist = nltk.FreqDist()
 
     @classmethod
     def load_training_data(cls):
-        # your code here
-        # this particular model doesn't train
-        return []
+        return
 
     @classmethod
     def load_test_data(cls, fname):
@@ -33,31 +42,84 @@ class MyModel:
                 f.write('{}\n'.format(p))
 
     def run_train(self, data, work_dir):
-        # your code here
-        pass
+        train_iter = WikiText2(split='train')
+        counter = 0
+        while True:
+            try:
+                curr_text = next(train_iter)
+                if counter % 1000 == 0:
+                    print(counter)
+                counter += 1
+                if len(curr_text) >= 1:
+                    self.trigram_freq_dist[("<START>", "<START>", curr_text[0])] += 1 
+                    self.bigram_freq_dist[("<START>", curr_text[0])] += 1 
+                if len(curr_text) >= 2:
+                    self.trigram_freq_dist[("<START>", curr_text[0], curr_text[1])] += 1 
+                self.trigram_freq_dist = self.trigram_freq_dist + (nltk.FreqDist(ngrams(char_tokenizer(curr_text),3)))
+                self.bigram_freq_dist = self.bigram_freq_dist + (nltk.FreqDist(ngrams(char_tokenizer(curr_text),2)))
+                # print(trigram_freq_dist.items())
+                self.bigram_freq_dist.get(curr_text[0])
+            except StopIteration:
+                break
+            # except Exception as e:
+            #     print(e) # or whatever kind of logging you want
+        
 
     def run_pred(self, data):
         # your code here
         preds = []
         all_chars = string.ascii_letters
         for inp in data:
+            char_prob = np.zeros(np.shape(all_chars))
+            max_letter = ""
+            if len(inp) <= 1:
+                last_letter = "<START>"
+            else:
+                last_letter =  inp[len(inp) - 1]
+            if len(inp) <= 0:
+                second_last_letter = "<START>"
+            else:
+                second_last_letter = inp[len(inp) - 2]
+            for i, letter in enumerate(all_chars):
+                char_prob[i] = (self.trigram_freq_dist[(letter, second_last_letter, last_letter )] + 1) / (self.bigram_freq_dist[(second_last_letter, last_letter)] + 1)
+            # if temp > max_prob and letter is not "<START>":
+            # indices = np.argpartition(char_prob, -3)[-3:]
+            indices = char_prob.argsort()[-3:][::-1]
             # this model just predicts a random character each time
-            top_guesses = [random.choice(all_chars) for _ in range(3)]
+            top_guesses = all_chars[indices]
             preds.append(''.join(top_guesses))
         return preds
 
     def save(self, work_dir):
         # your code here
         # this particular model has nothing to save, but for demonstration purposes we will save a blank file
-        with open(os.path.join(work_dir, 'model.checkpoint'), 'wt') as f:
-            f.write('dummy save')
+        # with open(os.path.join(work_dir, 'model.checkpoint'), 'wt') as f:
+        #     f.write('dummy save')
+        with open(os.path.join(work_dir,"training_tri.csv"), "w") as f:
+            writer = csv.writer(f)
+            for key, val in self.trigram_freq_dist.items():
+                writer.writerow([key,val])
+        
+        with open(os.path.join(work_dir,"training_bi.csv"), "w") as f:
+            writer = csv.writer(f)
+            for key, val in self.bigram_freq_dist.items():
+                writer.writerow([key,val])  
 
     @classmethod
-    def load(cls, work_dir):
+    def load(self, cls, work_dir):
         # your code here
         # this particular model has nothing to load, but for demonstration purposes we will load a blank file
-        with open(os.path.join(work_dir, 'model.checkpoint')) as f:
-            dummy_save = f.read()
+        tri_csv_file = open(os.path.join(work_dir, 'training_tri.csv'), "r")
+        tri_dict_reader = csv.DictReader(tri_csv_file)
+        with open(os.path.join(work_dir, 'training_bi.csv'), "r") as f:
+            read = csv.reader(f)
+            for row in read:
+                self.bigram_freq_dist[eval(row[0])] = int(row[1])
+        with open(os.path.join(work_dir, 'training_tri.csv'), "r") as f:
+            read = csv.reader(f)
+            for row in read:
+                self.trigram_freq_dist[eval(row[0])] = int(row[1])
+
         return MyModel()
 
 
@@ -85,7 +147,7 @@ if __name__ == '__main__':
         model.save(args.work_dir)
     elif args.mode == 'test':
         print('Loading model')
-        model = MyModel.load(args.work_dir)
+        model = MyModel.load(work_dir=args.work_dir, cls="")
         print('Loading test data from {}'.format(args.test_data))
         test_data = MyModel.load_test_data(args.test_data)
         print('Making predictions')
