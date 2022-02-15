@@ -20,6 +20,7 @@ class MyModel:
     """
     trigram_freq_dist = nltk.FreqDist()
     bigram_freq_dist = nltk.FreqDist()
+    all_chars = set({})
 
     @classmethod
     def load_training_data(cls):
@@ -47,6 +48,7 @@ class MyModel:
         while True:
             try:
                 curr_text = next(train_iter)
+                self.all_chars.update(set(char_tokenizer(curr_text)))
                 if counter % 1000 == 0:
                     print(counter)
                 counter += 1
@@ -68,10 +70,12 @@ class MyModel:
     def run_pred(self, data):
         # your code here
         preds = []
-        all_chars = string.ascii_letters
+        all_char_arr = []
+        for i in range(0, 144697): # all unicode chars
+            all_char_arr.append(chr(i))
+        all_char_arr = np.array(all_char_arr)
         for inp in data:
-            char_prob = np.zeros(np.shape(all_chars))
-            max_letter = ""
+            char_prob = np.zeros(np.shape(all_char_arr))
             if len(inp) <= 1:
                 last_letter = "<START>"
             else:
@@ -80,13 +84,13 @@ class MyModel:
                 second_last_letter = "<START>"
             else:
                 second_last_letter = inp[len(inp) - 2]
-            for i, letter in enumerate(all_chars):
+            for i, letter in enumerate(all_char_arr):
                 char_prob[i] = (self.trigram_freq_dist[(letter, second_last_letter, last_letter )] + 1) / (self.bigram_freq_dist[(second_last_letter, last_letter)] + 1)
             # if temp > max_prob and letter is not "<START>":
             # indices = np.argpartition(char_prob, -3)[-3:]
             indices = char_prob.argsort()[-3:][::-1]
             # this model just predicts a random character each time
-            top_guesses = all_chars[indices]
+            top_guesses = all_char_arr[indices]
             preds.append(''.join(top_guesses))
         return preds
 
