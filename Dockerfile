@@ -5,3 +5,6 @@ VOLUME ["/job/data", "/job/src", "/job/work", "/job/output"]
 
 # You should install any dependencies you need here.
 RUN pip install datasets
+RUN pip install numpy
+RUN pip install torchtext
+RUN pip install nltk

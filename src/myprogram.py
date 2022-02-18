@@ -9,7 +9,6 @@ import nltk
 from nltk import ngrams
 import numpy as np
 import csv
-from collections import Counter
 
 def char_tokenizer(text):
   return [c for c in text]
@@ -70,10 +69,7 @@ class MyModel:
     def run_pred(self, data):
         # your code here
         preds = []
-        all_char_arr = []
-        for i in range(0, 144697): # all unicode chars
-            all_char_arr.append(chr(i))
-        all_char_arr = np.array(all_char_arr)
+        all_char_arr = np.array(list(string.ascii_letters))
         for inp in data:
             char_prob = np.zeros(np.shape(all_char_arr))
             if len(inp) <= 1:
