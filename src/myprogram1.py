@@ -19,9 +19,9 @@ class Helper(nn.Module):
     def __init__(self, input_length, output_length, hidden_size, num_layers):
         super(Helper, self).__init__()
         self.embedding = nn.Embedding(input_length, input_length)
-        self.rnn = nn.LSTM(input_length=input_length, hidden_size=hidden_size, num_layers=num_layers)
+        self.rnn = nn.LSTM(input_size=input_length, hidden_size=hidden_size, num_layers=num_layers)
         self.decoder = nn.Linear(hidden_size, output_length)
-    @classmethod
+
     def forward(self, input, hidden):
         embedding = self.embedding(input)
         output, hidden = self.rnn(embedding, hidden)
@@ -118,10 +118,10 @@ class MyModel():
                 loss.backward()
                 optimizer.step()
 
-                info_ptr += 1
+                info_ptr += sequence_len
                 n += 1
 
-                if info_ptr + sequence_len > 1 + data_size:
+                if info_ptr + sequence_len + 1 > data_size:
                     break
             
             info_ptr = 0
@@ -147,9 +147,9 @@ class MyModel():
                 
                 # next input is current output
                 input_seq[0][0] = index.item()
-                data_ptr += 1
+                info_ptr += 1
                 
-                if data_ptr > output_seq_len:
+                if info_ptr > output_seq_len:
                     break
                 
             print("\n----------------------------------------")
@@ -200,7 +200,7 @@ class MyModel():
                 index = dist.sample().item()
                 print(index_to_char[index], end='')
                 input_seq[0][0] = index
-                data_ptr += 1
+                info_ptr += 1
 
 
 
@@ -210,6 +210,9 @@ if __name__ == '__main__':
     parser.add_argument('--work_dir', help='where to save', default='work')
     parser.add_argument('--test_data', help='path to test data', default='example/input.txt')
     parser.add_argument('--test_output', help='path to write test predictions', default='pred.txt')
+    # args = parser.parse_args()
+    parser.add_argument("test")
+    parser.add_argument("--work_dir=work")
     args = parser.parse_args()
 
     random.seed(0)
