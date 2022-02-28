@@ -1,3 +1,4 @@
+from cgi import test
 import enum
 from pickletools import optimize
 from pydoc import classname
@@ -161,22 +162,31 @@ class MyModel():
         layer_num = 3
 
         train_path = os.path.join(work_dir, "wikitrain.pth")
-        data_path = os.path.join(work_dir, "answer.txt")
-        data = open(data_path, 'r').read()
-        chars = sorted(list(set(data)))
-        data_per_line = data.splitlines()
+        test_path = os.path.join("example", "input.txt")
+        wiki_iter = WikiText2(split="train")
+        total_data = ""
+        while True:
+            try:
+                curr_text = next(wiki_iter)
+                total_data += curr_text
+            except:
+                break
+        test_data = open(test_path, 'r').read()
+        wiki_chars = sorted(list(set(total_data)))
+        total_data = total_data[:200]
+        data_per_line = test_data.splitlines()
         
-        char_to_index = { ch:i for i,ch in enumerate(chars) }
-        index_to_char = { i:ch for i,ch in enumerate(chars) }
+        char_to_index = { ch:i for i,ch in enumerate(wiki_chars) }
+        index_to_char = { i:ch for i,ch in enumerate(wiki_chars) }
 
-        data = list(data)
-        for i, ch in enumerate(data):
-            data[i] = char_to_index[ch]
+        total_data = list(total_data)
+        for i, ch in enumerate(total_data):
+            total_data[i] = char_to_index[ch]
 
-        data = torch.tensor(data).to(device)
-        data = torch.unsqueeze(data, dim=1)
+        total_data = torch.tensor(total_data).to(device)
+        total_data = torch.unsqueeze(total_data, dim=1)
 
-        data_size, vocab_size = len(data), len(chars)
+        data_size, vocab_size = len(total_data), len(wiki_chars)
         rnn = Helper(vocab_size, vocab_size, hidden_size, layer_num).to(device)
         rnn.load_state_dict(torch.load(train_path, map_location=torch.device('cpu')))
 
@@ -185,22 +195,18 @@ class MyModel():
 
 
         for line in data_per_line:
-            temp_line = line[:len(line)-3]
-            input_seq = data[len(temp_line): len(temp_line) + 1]
-            _, hidden_state = rnn(temp_line, hidden_state)
-            input_seq = data[len(temp_line) + 1: len(temp_line) + 2]
-            while True:
-                
-                if info_ptr  > output_len:
-                    break
-                output, hidden_state = rnn(line, hidden_state)
-
-                output = F.softmax(torch.squeeze(output), dim=0)
-                dist = Categorical(output)
-                index = dist.sample().item()
-                print(index_to_char[index], end='')
-                input_seq[0][0] = index
-                info_ptr += 1
+            line = list(line)
+            for i, ch in enumerate(line):
+                line[i] = char_to_index[ch]
+            line = torch.tensor(line).to(device)
+            line = torch.unsqueeze(line, dim=1)
+            output, hidden_state = rnn(line, hidden_state)    
+            print("----------------------------------------")
+            output = F.softmax(torch.squeeze(output), dim=0)
+            dist = Categorical(output)
+            index = dist.sample().item()
+            print(index)
+            print("\n----------------------------------------")
 
 
 
@@ -210,34 +216,33 @@ if __name__ == '__main__':
     parser.add_argument('--work_dir', help='where to save', default='work')
     parser.add_argument('--test_data', help='path to test data', default='example/input.txt')
     parser.add_argument('--test_output', help='path to write test predictions', default='pred.txt')
-    # args = parser.parse_args()
-    parser.add_argument("test")
-    parser.add_argument("--work_dir=work")
+    parser.add_argument("train")
     args = parser.parse_args()
 
     random.seed(0)
 
-    if args.mode == 'train':
-        if not os.path.isdir(args.work_dir):
-            print('Making working directory {}'.format(args.work_dir))
-            os.makedirs(args.work_dir)
-        print('Instatiating model')
-        model = MyModel()
-        print('Loading training data')
-        # train_data = MyModel.load_training_data()
-        print('Training')
-        model.run_train(args.work_dir)
-        print('Saving model')
-        # model.save(args.work_dir) save performed in train()
-    elif args.mode == 'test':
-        print('Loading model')
-        model = MyModel.load(work_dir=args.work_dir, cls="")
-        print('Loading test data from {}'.format(args.test_data))
-        test_data = MyModel.load_test_data(args.test_data)
-        print('Making predictions')
-        pred = model.run_pred(test_data)
-        print('Writing predictions to {}'.format(args.test_output))
-        assert len(pred) == len(test_data), 'Expected {} predictions but got {}'.format(len(test_data), len(pred))
-        model.write_pred(pred, args.test_output)
-    else:
-        raise NotImplementedError('Unknown mode {}'.format(args.mode))
+    # if args.mode == 'train':
+    #     if not os.path.isdir(args.work_dir):
+    #         print('Making working directory {}'.format(args.work_dir))
+    #         os.makedirs(args.work_dir)
+    #     print('Instatiating model')
+    #     model = MyModel()
+    #     print('Loading training data')
+    #     # train_data = MyModel.load_training_data()
+    #     print('Training')
+    #     model.run_train(args.work_dir)
+    #     print('Saving model')
+    #     # model.save(args.work_dir) save performed in train()
+    # elif args.mode == 'test':
+    print('Loading model')
+    # model = MyModel.load(work_dir=args.work_dir, cls="")
+    print('Loading test data from {}'.format(args.test_data))
+    # test_data = MyModel.load_test_data(args.test_data)
+    print('Making predictions')
+    model = MyModel()
+    pred = model.run_pred(args.work_dir)
+    print('Writing predictions to {}'.format(args.test_output))
+    # assert len(pred) == len(test_data), 'Expected {} predictions but got {}'.format(len(test_data), len(pred))
+    # model.write_pred(pred, args.test_output)
+    # else:
+    #     raise NotImplementedError('Unknown mode {}'.format(args.mode))
