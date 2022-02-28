@@ -200,7 +200,6 @@ class MyModel():
                 index = dist.sample().item()
                 print(index_to_char[index], end='')
                 input_seq[0][0] = index
-                input_seq[0][0] = index
                 data_ptr += 1
 
 
