@@ -195,16 +195,19 @@ class MyModel():
 
 
         for line in data_per_line:
+            print(line)
             line = list(line)
             for i, ch in enumerate(line):
                 line[i] = char_to_index[ch]
             line = torch.tensor(line).to(device)
-            line = torch.unsqueeze(line, dim=1)
+            line = torch.unsqueeze(line, dim=0)
             output, hidden_state = rnn(line, hidden_state)    
             print("----------------------------------------")
             output = F.softmax(torch.squeeze(output), dim=0)
+            top_values = torch.topk(output, k=3).indices
+            print(top_values)
             dist = Categorical(output)
-            index = dist.sample().item()
+            index = dist.sample()
             print(index)
             print("\n----------------------------------------")
 
