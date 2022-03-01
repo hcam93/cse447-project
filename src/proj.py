@@ -1,15 +1,17 @@
 #!/usr/bin/env python
+from base64 import encode
 import os
-import string
+from statistics import mode
 import random
 from argparse import ArgumentParser, ArgumentDefaultsHelpFormatter
-from numpy import array
 from torchtext.datasets import WikiText2
-import nltk
-from nltk import ngrams
 import numpy as np
-import csv
 from utils import *
+
+"""
+See https://colab.research.google.com/github/abhaysrivastav/ComputerVision/blob/master/Chararacter_Level_RNN.ipynb#scrollTo=cLtLn8jnu8wS for reference
+See http://karpathy.github.io/2015/05/21/rnn-effectiveness/ for reference
+"""
 
 def char_tokenizer(text):
     return [c for c in text]
@@ -39,7 +41,6 @@ class MyModel:
 
     @classmethod
     def load_test_data(cls, fname):
-        # your code here
         data = []
         with open(fname) as f:
             for line in f:
@@ -54,22 +55,22 @@ class MyModel:
                 f.write('{}\n'.format(p))
 
     def run_train(self, data, work_dir):
-        chars, int2char, char2int, encoded = data
+        chars, _, _, encoded = data
         net = CharRNN(chars, n_hidden=512, n_layers=2)
         n_seqs, n_steps = 128, 100
-        train(net, encoded, epochs=10, n_seqs=n_seqs, n_steps=n_steps, lr=0.001, cuda=True, print_every=10)
+        train(net, encoded, epochs=1, n_seqs=n_seqs, n_steps=n_steps, lr=0.001, cuda=True, print_every=10)
         self.net = net
 
     def run_pred(self, data):
-        # your code here
         preds = []
         for inp in data:
-            top_guesses = sample(self.net, 1, prime=inp, top_k=3, cuda=True)
+            # Create sample for each input
+            top_guesses = sample(self.net, 1, prime=inp, top_k=3, cuda=False)
             preds.append(''.join(top_guesses))
         return preds
 
     def save(self, work_dir):
-        model_name = 'rnn_1_epoch.net'
+        model_name = os.path.join(work_dir, 'rnn_1_epoch.net')
 
         checkpoint = {'n_hidden': self.net.n_hidden,
                       'n_layers': self.net.n_layers,
@@ -81,12 +82,12 @@ class MyModel:
 
     @classmethod
     def load(self, cls, work_dir):
-        with open('rnn_1_epoch.net', 'rb') as f:
-            checkpoint = torch.load(f)
-
+        with open(os.path.join(work_dir, 'trained_model.net'), 'rb') as f:
+            checkpoint = torch.load(f, map_location=torch.device('cpu'))
+        f.close()
         loaded = CharRNN(checkpoint['tokens'], n_hidden=checkpoint['n_hidden'], n_layers=checkpoint['n_layers'])
         loaded.load_state_dict(checkpoint['state_dict'])
-        self.net= loaded
+        return loaded
 
 
 if __name__ == '__main__':
@@ -113,9 +114,10 @@ if __name__ == '__main__':
         model.save(args.work_dir)
     elif args.mode == 'test':
         print('Loading model')
-        model = MyModel.load(work_dir=args.work_dir, cls="")
+        model = MyModel()
+        model.net = model.load(work_dir=args.work_dir, cls="")
         print('Loading test data from {}'.format(args.test_data))
-        test_data = MyModel.load_test_data(args.test_data)
+        test_data = model.load_test_data(args.test_data)
         print('Making predictions')
         pred = model.run_pred(test_data)
         print('Writing predictions to {}'.format(args.test_output))

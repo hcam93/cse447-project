@@ -5,33 +5,24 @@ import torch.nn.functional as F
 
 
 def one_hot_encode(arr, n_labels):
-    # Initialize the the encoded array
+    # Initialize array
     one_hot = np.zeros((np.multiply(*arr.shape), n_labels), dtype=np.float32)
 
-    # Fill the appropriate elements with ones
+    # Make ones array 
     one_hot[np.arange(one_hot.shape[0]), arr.flatten()] = 1.
 
-    # Finally reshape it to get back to the original array
+    #reshape to original array
     one_hot = one_hot.reshape((*arr.shape, n_labels))
 
     return one_hot
 def get_batches(arr, n_seqs, n_steps):
-    '''Create a generator that returns batches of size
-       n_seqs x n_steps from arr.
-
-       Arguments
-       ---------
-       arr: Array you want to make batches from
-       n_seqs: Batch size, the number of sequences per batch
-       n_steps: Number of sequence steps per batch
-    '''
 
     batch_size = n_seqs * n_steps
     n_batches = len(arr) // batch_size
 
-    # Keep only enough characters to make full batches
+    # make full batch
     arr = arr[:n_batches * batch_size]
-    # Reshape into n_seqs rows
+    # Reshape n_seqs rows
     arr = arr.reshape((n_seqs, -1))
 
     for n in range(0, arr.shape[1], n_steps):
@@ -61,43 +52,31 @@ class CharRNN(nn.Module):
         self.int2char = dict(enumerate(self.chars))
         self.char2int = {ch: ii for ii, ch in self.int2char.items()}
 
-        ## TODO: define the LSTM
         self.lstm = nn.LSTM(len(self.chars), n_hidden, n_layers,
                             dropout=drop_prob, batch_first=True)
 
-        ## TODO: define a dropout layer
         self.dropout = nn.Dropout(drop_prob)
 
-        ## TODO: define the final, fully-connected output layer
         self.fc = nn.Linear(n_hidden, len(self.chars))
 
         # initialize the weights
         self.init_weights()
 
     def forward(self, x, hc):
-        ''' Forward pass through the network.
-            These inputs are x, and the hidden/cell state `hc`. '''
 
-        ## TODO: Get x, and the new hidden state (h, c) from the lstm
         x, (h, c) = self.lstm(x, hc)
 
-        ## TODO: pass x through a droupout layer
         x = self.dropout(x)
 
         # Stack up LSTM outputs using view
         x = x.reshape(x.size()[0] * x.size()[1], self.n_hidden)
 
-        ## TODO: put x through the fully-connected layer
         x = self.fc(x)
 
         # return x and the hidden state (h, c)
         return x, (h, c)
 
     def predict(self, char, h=None, cuda=False, top_k=None):
-        ''' Given a character, predict the next character.
-
-            Returns the predicted character and the hidden state.
-        '''
         if cuda:
             self.cuda()
         else:
@@ -131,16 +110,12 @@ class CharRNN(nn.Module):
         return self.int2char[char], h
 
     def init_weights(self):
-        ''' Initialize weights for fully connected layer '''
-        initrange = 0.1
-
         # Set bias tensor to all zeros
         self.fc.bias.data.fill_(0)
         # FC weights as random uniform
         self.fc.weight.data.uniform_(-1, 1)
 
     def init_hidden(self, n_seqs):
-        ''' Initializes hidden state '''
         # Create two new tensors with sizes n_layers x n_seqs x n_hidden,
         # initialized to zero, for hidden state and cell state of LSTM
         weight = next(self.parameters()).data
@@ -149,29 +124,11 @@ class CharRNN(nn.Module):
 
 
 def train(net, data, epochs=10, n_seqs=10, n_steps=50, lr=0.001, clip=5, val_frac=0.1, cuda=False, print_every=10):
-    ''' Training a network
-
-        Arguments
-        ---------
-
-        net: CharRNN network
-        data: text data to train the network
-        epochs: Number of epochs to train
-        n_seqs: Number of mini-sequences per mini-batch, aka batch size
-        n_steps: Number of character steps per mini-batch
-        lr: learning rate
-        clip: gradient clipping
-        val_frac: Fraction of data to hold out for validation
-        cuda: Train with CUDA on a GPU
-        print_every: Number of steps for printing training and validation loss
-
-    '''
-
     net.train()
     opt = torch.optim.Adam(net.parameters(), lr=lr)
     criterion = nn.CrossEntropyLoss()
 
-    # create training and validation data
+    # training and validation data
     val_idx = int(len(data) * (1 - val_frac))
     data, val_data = data[:val_idx], data[val_idx:]
 
@@ -192,8 +149,6 @@ def train(net, data, epochs=10, n_seqs=10, n_steps=50, lr=0.001, clip=5, val_fra
             if cuda:
                 inputs, targets = inputs.cuda(), targets.cuda()
 
-            # Creating new variables for the hidden state, otherwise
-            # we'd backprop through the entire training history
             h = tuple([each.data for each in h])
 
             net.zero_grad()
@@ -246,10 +201,7 @@ def sample(net, size, prime='The', top_k=None, cuda=False):
     net.eval()
 
     def predict(char, h=None, cuda=False, top_k=None):
-        ''' Given a character, predict the next character.
 
-            Returns the predicted character and the hidden state.
-        '''
         if h is None:
             h = net.init_hidden(1)
 
@@ -269,10 +221,8 @@ def sample(net, size, prime='The', top_k=None, cuda=False):
         if top_k is None:
             char_idx = torch.argmax(p).item()
             result = net.int2char[char_idx]
-            # print(p.squeeze())
         else:
-            probabilities, indices = torch.topk(p, k=top_k, largest=True, sorted=True)
-            # print(indices)
+            _, indices = torch.topk(p, k=top_k, largest=True, sorted=True)
             result = ""
             for idx in indices:
                 result += (net.int2char[idx.item()])
