@@ -1,33 +1,44 @@
 #!/usr/bin/env python
 import os
-import string
 import random
 from argparse import ArgumentParser, ArgumentDefaultsHelpFormatter
-from numpy import array
 from torchtext.datasets import WikiText2
-import nltk
-from nltk import ngrams
 import numpy as np
-import csv
+from utils import *
+
+"""
+See https://colab.research.google.com/github/abhaysrivastav/ComputerVision/blob/master/Chararacter_Level_RNN.ipynb#scrollTo=cLtLn8jnu8wS for reference
+See http://karpathy.github.io/2015/05/21/rnn-effectiveness/ for reference
+"""
 
 def char_tokenizer(text):
-  return [c for c in text]
+    return [c for c in text]
+
 
 class MyModel:
     """
     This is a starter model to get you started. Feel free to modify this file.
     """
-    trigram_freq_dist = nltk.FreqDist()
-    bigram_freq_dist = nltk.FreqDist()
-    all_chars = set({})
-
+    def __init__(self):
+        self.net = None
     @classmethod
     def load_training_data(cls):
-        return
+        text = ""
+        train_iter = WikiText2(split="train")
+        while True:
+            try:
+                curr_text = next(train_iter)
+                text += curr_text
+            except:
+                break
+        chars = tuple(set(text))
+        int2char = dict(enumerate(chars))
+        char2int = {ch: ii for ii, ch in int2char.items()}
+        encoded = np.array([char2int[ch] for ch in text])
+        return chars,int2char,char2int,encoded
 
     @classmethod
     def load_test_data(cls, fname):
-        # your code here
         data = []
         with open(fname) as f:
             for line in f:
@@ -42,85 +53,39 @@ class MyModel:
                 f.write('{}\n'.format(p))
 
     def run_train(self, data, work_dir):
-        train_iter = WikiText2(split='train')
-        counter = 0
-        while True:
-            try:
-                curr_text = next(train_iter)
-                self.all_chars.update(set(char_tokenizer(curr_text)))
-                if counter % 1000 == 0:
-                    print(counter)
-                counter += 1
-                if len(curr_text) >= 1:
-                    self.trigram_freq_dist[("<START>", "<START>", curr_text[0])] += 1 
-                    self.bigram_freq_dist[("<START>", curr_text[0])] += 1 
-                if len(curr_text) >= 2:
-                    self.trigram_freq_dist[("<START>", curr_text[0], curr_text[1])] += 1 
-                self.trigram_freq_dist = self.trigram_freq_dist + (nltk.FreqDist(ngrams(char_tokenizer(curr_text),3)))
-                self.bigram_freq_dist = self.bigram_freq_dist + (nltk.FreqDist(ngrams(char_tokenizer(curr_text),2)))
-                # print(trigram_freq_dist.items())
-                self.bigram_freq_dist.get(curr_text[0])
-            except StopIteration:
-                break
-            # except Exception as e:
-            #     print(e) # or whatever kind of logging you want
-        
+        chars, _, _, encoded = data
+        net = CharRNN(chars, n_hidden=512, n_layers=2)
+        n_seqs, n_steps = 128, 100
+        train(net, encoded, epochs=1, n_seqs=n_seqs, n_steps=n_steps, lr=0.001, cuda=True, print_every=10)
+        self.net = net
 
     def run_pred(self, data):
-        # your code here
         preds = []
-        all_char_arr = np.array(list(string.ascii_letters))
         for inp in data:
-            char_prob = np.zeros(np.shape(all_char_arr))
-            if len(inp) <= 1:
-                last_letter = "<START>"
-            else:
-                last_letter =  inp[len(inp) - 1]
-            if len(inp) <= 0:
-                second_last_letter = "<START>"
-            else:
-                second_last_letter = inp[len(inp) - 2]
-            for i, letter in enumerate(all_char_arr):
-                char_prob[i] = (self.trigram_freq_dist[(letter, second_last_letter, last_letter )] + 1) / (self.bigram_freq_dist[(second_last_letter, last_letter)] + 1)
-            # if temp > max_prob and letter is not "<START>":
-            # indices = np.argpartition(char_prob, -3)[-3:]
-            indices = char_prob.argsort()[-3:][::-1]
-            # this model just predicts a random character each time
-            top_guesses = all_char_arr[indices]
+            # Create sample for each input
+            top_guesses = sample(self.net, 1, prime=inp, top_k=3, cuda=False)
             preds.append(''.join(top_guesses))
         return preds
 
     def save(self, work_dir):
-        # your code here
-        # this particular model has nothing to save, but for demonstration purposes we will save a blank file
-        # with open(os.path.join(work_dir, 'model.checkpoint'), 'wt') as f:
-        #     f.write('dummy save')
-        with open(os.path.join(work_dir,"training_tri.csv"), "w") as f:
-            writer = csv.writer(f)
-            for key, val in self.trigram_freq_dist.items():
-                writer.writerow([key,val])
-        
-        with open(os.path.join(work_dir,"training_bi.csv"), "w") as f:
-            writer = csv.writer(f)
-            for key, val in self.bigram_freq_dist.items():
-                writer.writerow([key,val])  
+        model_name = os.path.join(work_dir, 'rnn_1_epoch.net')
+
+        checkpoint = {'n_hidden': self.net.n_hidden,
+                      'n_layers': self.net.n_layers,
+                      'state_dict': self.net.state_dict(),
+                      'tokens': self.net.chars}
+
+        with open(model_name, 'wb') as f:
+            torch.save(checkpoint, f)
 
     @classmethod
     def load(self, cls, work_dir):
-        # your code here
-        # this particular model has nothing to load, but for demonstration purposes we will load a blank file
-        tri_csv_file = open(os.path.join(work_dir, 'training_tri.csv'), "r")
-        tri_dict_reader = csv.DictReader(tri_csv_file)
-        with open(os.path.join(work_dir, 'training_bi.csv'), "r") as f:
-            read = csv.reader(f)
-            for row in read:
-                self.bigram_freq_dist[eval(row[0])] = int(row[1])
-        with open(os.path.join(work_dir, 'training_tri.csv'), "r") as f:
-            read = csv.reader(f)
-            for row in read:
-                self.trigram_freq_dist[eval(row[0])] = int(row[1])
-
-        return MyModel()
+        with open(os.path.join(work_dir, 'trained_model.net'), 'rb') as f:
+            checkpoint = torch.load(f, map_location=torch.device('cpu'))
+        f.close()
+        loaded = CharRNN(checkpoint['tokens'], n_hidden=checkpoint['n_hidden'], n_layers=checkpoint['n_layers'])
+        loaded.load_state_dict(checkpoint['state_dict'])
+        return loaded
 
 
 if __name__ == '__main__':
@@ -147,9 +112,10 @@ if __name__ == '__main__':
         model.save(args.work_dir)
     elif args.mode == 'test':
         print('Loading model')
-        model = MyModel.load(work_dir=args.work_dir, cls="")
+        model = MyModel()
+        model.net = model.load(work_dir=args.work_dir, cls="")
         print('Loading test data from {}'.format(args.test_data))
-        test_data = MyModel.load_test_data(args.test_data)
+        test_data = model.load_test_data(args.test_data)
         print('Making predictions')
         pred = model.run_pred(test_data)
         print('Writing predictions to {}'.format(args.test_output))
