@@ -42,8 +42,8 @@ class MyModel:
         data = []
         with open(fname) as f:
             for line in f:
-                inp = line[:-1]  # the last character is a newline
-                data.append(inp)
+                line = line.strip()  # the last character is a newline
+                data.append(line)
         return data
 
     @classmethod

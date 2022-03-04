@@ -233,13 +233,15 @@ def sample(net, size, prime='The', top_k=None, cuda=False):
     chars = [ch for ch in prime]
     h = net.init_hidden(1)
     for ch in range(len(prime) - 1):
-        # print(prime[ch])
-        char, h = predict(prime[ch], h, cuda=cuda, top_k=None)
-        # print(char)
+        if prime is not None and prime[ch] in net.char2int:
+            char, h = predict(prime[ch], h, cuda=cuda, top_k=None)
     result = None
     for ii in range(size):
-        char, h = predict(chars[-1], h, cuda=cuda, top_k=top_k)
-        result = char
-
+        if len(chars) > 0 and chars[-1] in net.char2int:
+            char, h = predict(chars[-1], h, cuda=cuda, top_k=top_k)
+            result = char
+    
+    if result is None:
+        result = 'eta'
     return result
 
