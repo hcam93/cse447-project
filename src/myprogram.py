@@ -56,14 +56,20 @@ class MyModel:
         chars, _, _, encoded = data
         net = CharRNN(chars, n_hidden=512, n_layers=2)
         n_seqs, n_steps = 128, 100
-        train(net, encoded, epochs=1, n_seqs=n_seqs, n_steps=n_steps, lr=0.001, cuda=True, print_every=10)
+        cuda = False
+        if torch.cuda.is_available():
+                cuda = True
+        train(net, encoded, epochs=1, n_seqs=n_seqs, n_steps=n_steps, lr=0.001, cuda=cuda, print_every=10)
         self.net = net
 
     def run_pred(self, data):
         preds = []
         for inp in data:
             # Create sample for each input
-            top_guesses = sample(self.net, 1, prime=inp, top_k=3, cuda=False)
+            cuda = False
+            if torch.cuda.is_available():
+                cuda = True
+            top_guesses = sample(self.net, 1, prime=inp, top_k=3, cuda=cuda)
             preds.append(''.join(top_guesses))
         return preds
 
