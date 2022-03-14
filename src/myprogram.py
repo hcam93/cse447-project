@@ -5,6 +5,7 @@ from argparse import ArgumentParser, ArgumentDefaultsHelpFormatter
 from torchtext.datasets import WikiText2
 import numpy as np
 from utils import *
+import math
 
 """
 See https://colab.research.google.com/github/abhaysrivastav/ComputerVision/blob/master/Chararacter_Level_RNN.ipynb#scrollTo=cLtLn8jnu8wS for reference
@@ -31,6 +32,7 @@ class MyModel:
                 text += curr_text
             except:
                 break
+        text = text[:math.floor(len(text) * (2/3))]
         chars = tuple(set(text))
         int2char = dict(enumerate(chars))
         char2int = {ch: ii for ii, ch in int2char.items()}
