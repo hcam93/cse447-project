@@ -32,8 +32,7 @@ class MyModel:
                 text += curr_text
             except:
                 break
-        text = text[:math.floor(len(text) * (2/3))]
-        chars = tuple(set(text))
+        chars = tuple(set(chars))
         int2char = dict(enumerate(chars))
         char2int = {ch: ii for ii, ch in int2char.items()}
         encoded = np.array([char2int[ch] for ch in text])
@@ -45,6 +44,7 @@ class MyModel:
         with open(fname) as f:
             for line in f:
                 line = line.strip()  # the last character is a newline
+                line = line[max(len(line)-100, 0):]
                 data.append(line)
         return data
 
